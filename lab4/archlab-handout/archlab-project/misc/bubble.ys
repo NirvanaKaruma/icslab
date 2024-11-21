@@ -1,0 +1,96 @@
+# 姓名: 栾佑宇
+# 学号: 2300013113
+	.pos 0
+	irmovq	stack,%rsp
+	call main
+	halt
+
+	.align 8
+array:
+	.quad 0xbca
+	.quad 0xcba
+	.quad 0xacb
+	.quad 0xcab
+	.quad 0xabc
+	.quad 0xbac
+	
+################################################################################
+# You may want to modify this portion
+# bubble_a对应的goto版本:
+# void bubble_sort(long *data, long count)
+# {
+#     long *i, *last;
+#     last = data + count - 1;
+# 
+# outer_loop:
+#     if (last <= data)
+#         goto end_outer_loop;
+# 
+#    i = data;
+#
+# inner_loop:
+#     if (i >= last)
+#         goto end_inner_loop;
+# 
+#     if (*(i + 1) < *i) {
+#         long t = *(i + 1);
+#         *(i + 1) = *i;
+#         *i = t;
+#     }
+# 
+#     i++;
+#     goto inner_loop;
+# 
+# end_inner_loop:
+#     last--;
+#     goto outer_loop;
+# 
+# end_outer_loop:
+#     return;
+# }
+# array in %rdi, count in %rsi
+bubble_a:
+	irmovq $8, %r8 # %r8 = 8
+	# 令 %rcx = last = data + count - 1
+	rrmovq %rsi, %rcx
+	addq %rcx, %rcx
+	addq %rcx, %rcx
+	addq %rcx, %rcx # %rcx = count * 8
+	addq %rdi, %rcx
+	subq %r8, %rcx # last = data + count - 1
+outer_loop:
+	rrmovq %rdi, %r9
+	subq %rcx, %r9 # %r9 = data - last
+	jge end_outer_loop # last <= data -> end_outer_loop
+
+	rrmovq %rdi, %rbx # i = data
+inner_loop:
+	rrmovq %rbx, %r10
+	subq %rcx, %r10 # %r10 = i - last
+	jge end_inner_loop # i >= last -> end_inner_loop
+
+	# *i in %r11, *(i+1) in %r12
+	mrmovq (%rbx), %r11
+	mrmovq 8(%rbx), %r12
+	rrmovq %r11, %r10
+	subq %r12, %r10 # %r10 = *i - *(i + 1)
+	jle countinue # *i >= *(i + 1) -> skip swap
+	rmmovq %r11, 8(%rbx)
+	rmmovq %r12, (%rbx)
+countinue:
+	addq %r8, %rbx # i++
+	jmp inner_loop
+end_inner_loop:
+	subq %r8, %rcx # last--
+	jmp outer_loop
+end_outer_loop:	
+	ret
+
+main:
+	irmovq array, %rdi
+	irmovq $6, %rsi
+	call bubble_a
+	ret
+
+	.pos 0x200
+stack:

@@ -1,0 +1,10 @@
+
+ans3.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <.text>:
+   0:	48 c7 c7 68 10 68 55 	mov    $0x55681068,%rdi
+   7:	68 c8 1e 40 00       	push   $0x401ec8
+   c:	c3                   	ret

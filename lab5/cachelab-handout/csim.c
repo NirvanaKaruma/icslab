@@ -10,7 +10,7 @@ typedef struct cache_line{
     int valid;  // 有效位
     int tag;    // 标记位
     int time_stamp;  // 时间戳
-    // 忽略块便宜b
+    // 忽略块偏移b
 }Cache_line;
 
 // 定义cache

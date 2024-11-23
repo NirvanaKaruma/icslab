@@ -11,7 +11,7 @@ typedef struct cache_line{
     int tag;    // 标记位
     int time_stamp;  // 时间戳
     // 忽略块偏移b
-}Cache_line;
+} Cache_line;
 
 // 定义cache
 typedef struct cache{
@@ -19,7 +19,7 @@ typedef struct cache{
     int E;  // 每组缓存行数
     int B;  // 块大小
     Cache_line **line;
-}Cache;
+} Cache;
 
 Cache *cache = NULL;    // 缓存
 
@@ -58,7 +58,7 @@ void freeCache(){
 }
 
 // 更新缓存时间戳
-void updateTimeInfo(int op_s, int op_i, int op_tag){
+void updateTimeInfo(int op_s, int op_i, long op_tag){
     cache->line[op_s][op_i].valid = 1;
     cache->line[op_s][op_i].tag = op_tag;
     int E = cache->E;
@@ -99,7 +99,7 @@ int isFull(int op_s){
 }
 
 // 查找缓存行
-int getLine(int op_s, int op_tag){
+int getLine(int op_s, long op_tag){
     int E = cache->E;
     for(int i = 0; i < E; i++){
         if(cache->line[op_s][i].valid != -1 && cache->line[op_s][i].tag == op_tag){
@@ -110,7 +110,7 @@ int getLine(int op_s, int op_tag){
 }
 
 // 更新缓存
-void update(int op_s, int op_tag){
+void update(int op_s, long op_tag){
     int index = getLine(op_s, op_tag);
     if(index == -1){    // 不命中
         miss_count++;
@@ -173,11 +173,11 @@ int main(int argc, char* argv[])
     init(s, E, b);
 
     char operation;
-    unsigned address;
+    long address;
     int size;   // 没用
 
-    while(fscanf(file, "%s %x,%d\n", &operation, &address, &size) == 3){
-        int op_tag = address >> (s + b);
+    while(fscanf(file, "%s %lx,%d\n", &operation, &address, &size) == 3){
+        long op_tag = address >> (s + b);
         int op_s = address >> b & ((1 << s) - 1);
         switch(operation){
             case 'I':

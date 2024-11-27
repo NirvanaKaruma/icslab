@@ -29,6 +29,11 @@ int v = 0;  // 是否需要输出迭代信息
 
 // 初始化cache
 void init(int s, int E, int b){
+    // 异常处理
+    if(s <= 0 || E <= 0 || b <= 0 || (s + b) > 64){
+        printf("Error init!\n");
+        exit(-1);
+    }
     cache = (Cache *)malloc(sizeof(Cache));
     int S = 1 << s;
     int B = 1 << b;
@@ -123,7 +128,7 @@ void update(int op_s, long op_tag){
             if(v){
                 printf("eviction\n");
             }
-            op_i = findLRU(op_s);
+            op_i = findLRU(op_s);   // 用LRU找驱逐的行
         }
         updateTimeInfo(op_s, op_i, op_tag);
     } else {    //命中
@@ -135,6 +140,7 @@ void update(int op_s, long op_tag){
     }
 }
 
+// 打印帮助信息
 void printUsageInfo(){
     // 略
     printf("This is usage info.");
@@ -163,13 +169,20 @@ int main(int argc, char* argv[])
                 b = atoi(optarg);
                 break;
             case 't':
-                file = fopen(optarg, "r");
+                file = fopen(optarg, "r");  // 打开文件
                 break;
             default:
                 printUsageInfo();
                 exit(-1);   // 异常退出
         }
     }
+
+    // 空文件，异常退出
+    if(file == NULL){
+        printf("Empty input file!\n");
+        exit(-1);
+    }
+
     init(s, E, b);
 
     char operation;

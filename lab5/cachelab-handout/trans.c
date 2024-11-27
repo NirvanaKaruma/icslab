@@ -33,18 +33,14 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
      * s = 5, E = 1, b = 5
      * 有2^5=32组高速缓存，每组有1个块，每个块有2^5 = 32字节，因此总共有32*32=1024字节的缓存，能够装下256个int型数据.
      */ 
-    switch(M){
-        case 32:
-            trans_32x32(M, N, A, B);
-            break;
-        case 64:
-            trans_64x64(M, N, A, B);
-            break;
-        case 60:
-            trans_60x68(M, N, A, B);
-            break;
-        default:
-            trans(M, N, A, B);
+    if(M == 32 && N == 32){
+        trans_32x32(M, N, A, B);
+    } else if (M == 64 && N == 64) {
+        trans_64x64(M, N, A, B);
+    } else if (M == 60 && N == 68) {
+        trans_60x68(M, N, A, B);
+    } else {
+        trans(M, N, A, B);  // 默认情况
     }
 }
 

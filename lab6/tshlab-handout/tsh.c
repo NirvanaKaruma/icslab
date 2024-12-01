@@ -259,8 +259,13 @@ eval(char *cmdline)
     int std_output = Dup(STDOUT_FILENO);
 
     // 重定向输入输出
-    Dup2(input, STDIN_FILENO);
-    Dup2(output, STDOUT_FILENO);
+    // 重定向输入输出
+    if (input != STDIN_FILENO) {
+        Dup2(input, STDIN_FILENO);
+    }
+    if (output != STDOUT_FILENO) {
+        Dup2(output, STDOUT_FILENO);
+    }
 
     struct job_t* job;
     int jid;
@@ -376,7 +381,9 @@ eval(char *cmdline)
 
     // 恢复输入输出
     Dup2(std_input, STDIN_FILENO);
+    Close(std_input);
     Dup2(std_output, STDOUT_FILENO);
+    Close(std_output);
 
     return;
 }
@@ -550,35 +557,53 @@ sigchld_handler(int sig)
 {
     int olderrno = errno;   //保存errno
     int status;
+    int jid;
     pid_t pid;
     struct job_t *job;
     sigset_t mask_all, mask_prev;
 
     Sigfillset(&mask_all);
 
-    // 有任意一个子进程要返回时
-    while((pid = Waitpid(-1, &status, WNOHANG | WUNTRACED)) > 0){
+    // 有任意一个子进程要返回时(由csapp课本, 补充了WCONTINUED情况的讨论)
+    while((pid = Waitpid(-1, &status, WNOHANG | WUNTRACED | WCONTINUED)) > 0){
         job = getjobpid(job_list, pid);
-        // 阻塞所有信号
-        Sigprocmask(SIG_BLOCK, &mask_all, &mask_prev);
+        jid = job->jid;
         // 正常终止, 直接删除job返回
         if(WIFEXITED(status)){
+            // 阻塞所有信号
+            Sigprocmask(SIG_BLOCK, &mask_all, &mask_prev);
             deletejob(job_list, pid);
+            // 恢复阻塞
+            Sigprocmask(SIG_SETMASK, &mask_prev, NULL);
         }
         // 因为信号终止，打印终止的信号，并删除job返回
-        if(WIFSIGNALED(status)){
-            printf("Job [%d] (%d) terminated by signal %d\n", pid2jid(pid), pid, WTERMSIG(status));
+        else if(WIFSIGNALED(status)){
+            // 阻塞所有信号
+            Sigprocmask(SIG_BLOCK, &mask_all, &mask_prev);
+            sio_put("Job [%d] (%d) terminated by signal %d\n", jid, pid, WTERMSIG(status));
             deletejob(job_list, pid);
+            // 恢复阻塞
+            Sigprocmask(SIG_SETMASK, &mask_prev, NULL);
         }
         // 因为信号停止，打印停止的信号，更新信号状态返回
-        if(WIFSTOPPED(status)){
-            printf("Job [%d] (%d) stopped by signal %d\n", pid2jid(pid), pid, WSTOPSIG(status));
+        else if(WIFSTOPPED(status)){
+            // 阻塞所有信号
+            Sigprocmask(SIG_BLOCK, &mask_all, &mask_prev);
+            sio_put("Job [%d] (%d) stopped by signal %d\n", jid, pid, WSTOPSIG(status));
             job->state = ST;
+            // 恢复阻塞
+            Sigprocmask(SIG_SETMASK, &mask_prev, NULL);
         }
-        // 恢复阻塞
-        Sigprocmask(SIG_SETMASK, &mask_prev, NULL);
+        // 因为信号继续，且当前进程为停止状态，改为后台运行
+        else if(WIFCONTINUED(status) && job->state == ST){
+            // 阻塞所有信号
+            Sigprocmask(SIG_BLOCK, &mask_all, &mask_prev);
+            job->state = BG;
+            // 恢复阻塞
+            Sigprocmask(SIG_SETMASK, &mask_prev, NULL);
+        }
     }
-    errno = olderrno;
+    errno = olderrno;   // 恢复errno
     return;
 }
 
@@ -592,7 +617,11 @@ sigint_handler(int sig)
 {
     int olderrno = errno;
     pid_t pid;
+    sigset_t mask_all, mask_prev;
+    Sigfillset(&mask_all);
+    Sigprocmask(SIG_BLOCK, &mask_all, &mask_prev);
     if((pid = fgpid(job_list))){
+        Sigprocmask(SIG_SETMASK, &mask_prev, NULL);
         Kill(-pid, SIGINT);
     }
     errno = olderrno;
@@ -609,7 +638,11 @@ sigtstp_handler(int sig)
 {
     int olderrno = errno;
     pid_t pid;
+    sigset_t mask_all, mask_prev;
+    Sigfillset(&mask_all);
+    Sigprocmask(SIG_BLOCK, &mask_all, &mask_prev);
     if((pid = fgpid(job_list))){
+        Sigprocmask(SIG_SETMASK, &mask_prev, NULL);
         Kill(-pid, SIGTSTP);
     }
     errno = olderrno;

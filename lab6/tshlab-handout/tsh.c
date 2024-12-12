@@ -620,8 +620,9 @@ sigint_handler(int sig)
     sigset_t mask_all, mask_prev;
     Sigfillset(&mask_all);
     Sigprocmask(SIG_BLOCK, &mask_all, &mask_prev);
-    if((pid = fgpid(job_list))){
-        Sigprocmask(SIG_SETMASK, &mask_prev, NULL);
+    pid = fgpid(job_list);
+    Sigprocmask(SIG_SETMASK, &mask_prev, NULL);
+    if(pid){
         Kill(-pid, SIGINT);
     }
     errno = olderrno;
@@ -641,8 +642,9 @@ sigtstp_handler(int sig)
     sigset_t mask_all, mask_prev;
     Sigfillset(&mask_all);
     Sigprocmask(SIG_BLOCK, &mask_all, &mask_prev);
-    if((pid = fgpid(job_list))){
-        Sigprocmask(SIG_SETMASK, &mask_prev, NULL);
+    pid = fgpid(job_list);
+    Sigprocmask(SIG_SETMASK, &mask_prev, NULL);
+    if(pid){
         Kill(-pid, SIGTSTP);
     }
     errno = olderrno;

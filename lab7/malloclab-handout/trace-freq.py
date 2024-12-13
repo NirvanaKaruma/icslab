@@ -56,7 +56,6 @@ files = [
     "./traces/boat.rep",
     "./traces/binary2-bal.rep",
     "./traces/cccp.rep",
-    "./traces/cccp-bal.rep",
     "./traces/chrome.rep",
     "./traces/coalesce-big.rep",
     "./traces/cp-decl.rep",
@@ -64,8 +63,8 @@ files = [
     "./traces/expr-bal.rep",
     "./traces/firefox-reddit2.rep",
     "./traces/freeciv.rep",
-    "./traces/random.rep",
-    "./traces/random2.rep",
+    "./traces/ls.rep",
+    "./traces/perl.rep",
 ]
 for filename in files:
     parse_file(filename)

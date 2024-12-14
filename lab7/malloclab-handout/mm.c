@@ -19,7 +19,7 @@
 
 /* If you want debugging output, use the following macro.  When you hand
  * in, remove the #define DEBUG line. */
-#define DEBUG
+//#define DEBUG
 #ifdef DEBUG
 # define dbg_printf(...) printf(__VA_ARGS__)
 #else
@@ -38,13 +38,14 @@
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
 
-/* rounds up to the nearest multiple of ALIGNMENT */
-#define ALIGN(p) (((size_t)(p) + (ALIGNMENT-1)) & ~0x7)
+/* rounds up to the nearest multiple of ALIGNMENT and check*/
+#define ALIGN(p)            (((size_t)(p) + (ALIGNMENT-1)) & ~0x7)
+#define CHECK_ALIGN(p)      (ALIGN(p) == (size_t)(p))
 
 /* Basic constants and macros */
 #define WSIZE       4           /* Word and header/footer size (bytes) */ 
 #define DSIZE       8           /* Double word size (bytes) */
-#define CHUNKSIZE  (1 << 13)    /* Extend heap by this amount (bytes) */  
+#define CHUNKSIZE  (1 << 12)    /* Extend heap by this amount (bytes) */  
 #define FREE_LIST_NUM 14        /* The number of free blocks lists*/
 
 /* Pack a size and allocated bit into a word */
@@ -82,7 +83,6 @@
 /* Other helper functions */
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
-#define CHECK_ALIGN(p)      (ALIGN(p) == (size_t)(p))
 
 /* Global variables */
 static char *heap_listp = 0;  /* Pointer to first block */
@@ -109,12 +109,13 @@ static void mm_checkfreelist(int lineno);
  */
 int mm_init(void) {
     // 初始化所有空闲链表指针数组, 将所有空闲链表头指针初始化为堆底
+    char *lo = mem_heap_lo();
     free_listp = mem_heap_lo();
     // 分配存储指针数组的空间不足, 返回失败
     if((heap_listp = mem_sbrk(DSIZE * FREE_LIST_NUM)) == (void *)-1) 
             return -1;
     for(int i = 0; i < FREE_LIST_NUM; i++){
-        free_listp[i] = mem_heap_lo();
+        free_listp[i] = lo;
     }
 
     // 存储序言块、结尾块
@@ -262,39 +263,46 @@ void mm_checkheap(int lineno) {
     // 检查序言块
     if (GET(bp) != 0) {
         dbg_printf("[%d]Prologue Error: word before prologue incorrect at %p\n", lineno, bp);
+        exit(1);
     }
     if (GET(bp + WSIZE) != PACK_ALLOC(DSIZE, 1)) {
         dbg_printf("[%d]Prologue Error: prologue header incorrect at %p\n", lineno, bp);
+        exit(1);
     }
     if (GET(bp + 2 * WSIZE) != PACK_ALLOC(DSIZE, 1)) {
         dbg_printf("[%d]Prologue Error: prologue footer incorrect at %p\n", lineno, bp);
+        exit(1);
     }
     // 移动指针到序言块之后
     bp += (2 * WSIZE);
     // 初始化非1和0的数字, 用以特判初始状态
     size_t is_prev_alloc = 2;
     size_t is_prev_free = 0;
-    char *hi = mem_heap_hi() + 1;   // 堆顶指针, 指向结尾块尾
+    char *hi = mem_heap_hi() + 1;   // 堆顶指针
 
     while (bp < hi) {
         // 检查边界
         if (!CHECK_ALIGN(bp)) {
             dbg_printf("[%d]Alignment Error: block not aligned at %p\n", lineno, bp);
+            exit(1);
         }
         // 检查块大小
         if (GET_SIZE(HDRP(bp)) == 0) {
             dbg_printf("[%d]Block Header Error: block size is invalid at %p\n", lineno, bp);
+            exit(1);
         }
         // 指针并非指向堆底时, 检查头部是否正确标记上一个块的分配情况
         if (is_prev_alloc != 2) {
             if (GET_PREV_ALLOC(HDRP(bp)) != is_prev_alloc) {
+                size_t alloc = GET_PREV_ALLOC(HDRP(bp));
                 dbg_printf("[%d]Block Header Error: prev alloc bit is incorrect at %p\n", lineno, bp);
+                dbg_printf("    the alloc of header is %ld, but the prev alloc is %ld\n", alloc, is_prev_alloc);
                 exit(1);
             }
         }
         is_prev_alloc = GET_ALLOC(HDRP(bp));
 
-        // 对于空闲块，检查头部尾部是否一致
+        // 对于空闲块
         if (!GET_ALLOC(HDRP(bp))) {
             // 首先检查头尾是否一致
             if (GET(HDRP(bp)) != GET(FTRP(bp))) {
@@ -317,18 +325,25 @@ void mm_checkheap(int lineno) {
     // 检查结尾块大小是否为0
     if (GET_SIZE(HDRP(bp)) != 0) {
         dbg_printf("[%d]Epilogue Error: epilogue block size is invalid at %p\n", lineno, bp);
+        exit(1);
     }
     // 检查结尾块是否正确标记上一个块的分配情况
     if (GET_PREV_ALLOC(HDRP(bp)) != is_prev_alloc) {
+        size_t alloc = GET_PREV_ALLOC(HDRP(bp));
         dbg_printf("[%d]Epilogue Error: prev alloc bit is incorrect at %p\n", lineno, bp);
+        dbg_printf("    the alloc of the prev block is %ld, but the prev alloc is %ld\n", alloc, is_prev_alloc);
+        exit(1);
     }
     // 检查结尾块是否正确标记当前块的分配情况
     if (GET_ALLOC(HDRP(bp)) != 1) {
         dbg_printf("[%d]Epilogue Error: epilogue block is not allocated at %p\n", lineno, bp);
+        exit(1);
+        
     }
     // 检查当前指针是否超过堆顶
     if (bp > hi) {
         dbg_printf("[%d]Heap Error: heap extends beyond heap top at %p\n", lineno, bp);
+        dbg_printf("    heap top at %p\n", lineno, hi);
         exit(1);
     }
     // 检查是否对齐堆顶
@@ -350,22 +365,24 @@ void mm_checkfreelist(int lineno) {
     char *lo = mem_heap_lo();
     char *hi = mem_heap_hi();
     // 检查链表链接的正确性
-    for (int i = 0;i < FREE_LIST_NUM;i++) {
+    for (int i = 0; i < FREE_LIST_NUM; i++) {
         char *bp = free_listp[i];
         index2size(i);
         while (bp != lo) {
             // 检查双向链表是否匹配
             if (PREV_NODE(bp) != lo) {
                 if (NEXT_NODE(PREV_NODE(bp)) != bp) {
+                    char *bp2 = NEXT_NODE(PREV_NODE(bp));
                     dbg_printf("[%d]Free List Error: prev and next pointer not match at %p\n", lineno, bp);
+                    dbg_printf("    the next node of prev node at %p is %p\n", lineno, bp, bp2);
                     exit(1);
                 }
             }
-            // 检查当前节点大小是否符合桶大小
+            // 检查当前节点大小是否符合链表大小
             size_t cur_size = GET_SIZE(HDRP(bp));
             if (cur_size < low_range || cur_size > high_range) {
                 dbg_printf("[%d]Free List Error: block size not match bucket at %p\n", lineno, bp);
-                dbg_printf("    current size is %ld, but the range is from %ld to %ld\n", cur_size, low_range, high_range);
+                dbg_printf("    current size is %ld, but the range from %ld to %ld\n", cur_size, low_range, high_range);
                 exit(1);
             }
             // 检查当前节点是否为空闲块
@@ -382,13 +399,14 @@ void mm_checkfreelist(int lineno) {
         }
     }
     char* bp = lo + DSIZE * FREE_LIST_NUM;
+    // 通过块遍历的方式获取空闲块数量
     while (bp < hi) {
         if (!GET_ALLOC(HDRP(bp))) {
-            ++free_block_numbers_by_heap;
+            free_block_numbers_by_heap++;
         }
         bp = NEXT_BLKP(bp);
     }
-    free_block_numbers_by_heap--;   //删除一个序言块
+    free_block_numbers_by_heap--;
     // 检查是否所有的空闲块都在空闲链表中
     if (free_block_numbers_by_heap != free_block_numbers_by_list) {
         dbg_printf("[%d]Free List Error: not all free block in free lists %p\n", lineno, bp);
@@ -403,10 +421,8 @@ void mm_checkfreelist(int lineno) {
  */
 static inline size_t resize_alloc_size(size_t size){
     // 抡咽抡咽舸探渤崦鹜仅馁力蓉生馁力撺溯==
-    if (size >= 120 && size < 128) {
-        size = 128;
-    }
-    else if (size >= 448 && size < 512) {
+    
+    if (size >= 448 && size < 512) {
         size = 512;
     }
     else if (size >= 1000 && size < 1024) {
@@ -415,6 +431,7 @@ static inline size_t resize_alloc_size(size_t size){
     else if (size >= 2000 && size < 2048) {
         size = 2048;
     }
+
     if(size <= DSIZE)
         return 2 * DSIZE;
     else
@@ -557,36 +574,35 @@ static void insert_node(void *bp, size_t size) {
         free_listp[num] = bp;
         SET_PREV_NODE(bp, NULL);
         SET_NEXT_NODE(bp, NULL);
+        return;
     } 
     // 否则, 对链表前k个元素(含要插入的)进行插入排序
-    else {
-        int flag = 0;
+    else {        
         char *index = top;
-        while (NEXT_NODE(index) != end && flag == 0 && count < k) {
+        while (NEXT_NODE(index) != end && count < k) {
             char *next = NEXT_NODE(index);
             size_t s1 = GET_SIZE(HDRP(index));
             size_t s2 = GET_SIZE(HDRP(next));
             if (s1 <= size && s2 >= size) {
                 // 找到了插入位置
-                flag = 1;
                 SET_PREV_NODE(next, bp);
                 SET_PREV_NODE(bp, index);
                 SET_NEXT_NODE(bp, next);
                 SET_NEXT_NODE(index, bp);
+                return;
             }
             index = next;
             count++;
         }
         // 未找到插入位置
-        if (flag == 0) {
-            // 插入到第k个元素之后或者链表尾
-            SET_PREV_NODE(bp, index);
-            SET_NEXT_NODE(bp, NEXT_NODE(index));
-            SET_NEXT_NODE(index, bp);
-            if (NEXT_NODE(bp) != end) {
-                SET_PREV_NODE(NEXT_NODE(bp), bp);
-            }
+        // 插入到第k个元素之后或者链表尾
+        SET_PREV_NODE(bp, index);
+        SET_NEXT_NODE(bp, NEXT_NODE(index));
+        SET_NEXT_NODE(index, bp);
+        if (NEXT_NODE(bp) != end) {
+            SET_PREV_NODE(NEXT_NODE(bp), bp);
         }
+        return;
     }
 }
 
@@ -615,6 +631,7 @@ static inline void delete_node(void *bp){
  * size2index: Get the index from size.
  */
 static inline size_t size2index(size_t size) {
+    // 采用树结构, 减小查询量
     if (size <= 128) {
         if (size <= 32) {
             if (size <= 24) return 0;

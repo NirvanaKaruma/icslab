@@ -19,7 +19,7 @@
 
 /* If you want debugging output, use the following macro.  When you hand
  * in, remove the #define DEBUG line. */
-//#define DEBUG
+// #define DEBUG
 #ifdef DEBUG
 # define dbg_printf(...) printf(__VA_ARGS__)
 #else
@@ -188,40 +188,64 @@ void free (void *ptr) {
 
 /*
  * realloc - you may want to look at mm-naive.c
+ * If new alloc size < old size, just get it from old one.
  */
-void *realloc(void *oldptr, size_t size) {
+void* realloc(void* ptr, size_t size) {
     size_t oldsize;
-    void *newptr;
+    void* newptr;
 
-    /* If size == 0 then this is just free, and we return NULL. */
-    if(size == 0) {
-        free(oldptr);
-        return 0;
+    // size 为 0，相当于 free
+    if (size == 0) {
+        free(ptr);
+        return NULL;
     }
 
-    /* If oldptr is NULL, then this is just malloc. */
-    if(oldptr == NULL) {
+    // ptr 为 NULL，相当于 malloc
+    if (ptr == NULL) {
         return malloc(size);
     }
 
-    newptr = malloc(size);
+    oldsize = GET_SIZE(HDRP(ptr));
+    size = resize_alloc_size(size);
 
-    /* If realloc() fails the original block is left untouched  */
-    if(!newptr) {
-        return 0;
+    // 如果新大小小于或等于原大小，直接在原块上截断
+    if (size <= oldsize) {
+        // 如果新大小小于原大小，更新块的头部和尾部信息
+        if (size < oldsize) {
+            // 计算剩余块的大小
+            size_t remainder_size = oldsize - size;
+            // 如果剩余块大小大于等于最小块大小，则分割
+            if (remainder_size >= 2 * DSIZE) {
+                // 更新原块的头部信息
+                PUT(HDRP(ptr), PACK_ALL(size, GET_PREV_ALLOC(HDRP(ptr)), 1));                
+                // 处理剩余的块
+                char* next_ptr = NEXT_BLKP(ptr);
+                PUT(HDRP(next_ptr), PACK_ALL(remainder_size, 1, 0));
+                PUT(FTRP(next_ptr), PACK_ALL(remainder_size, 1, 0));
+                // 合并空闲块 (如果有), 并更新链表  
+                coalesce(next_ptr, remainder_size);
+            } 
+        }
+        return ptr;
     }
 
-    /* Copy the old data. */
-    oldsize = GET_SIZE(HDRP(oldptr));
-    if(size < oldsize) oldsize = size;
-    memcpy(newptr, oldptr, oldsize);
+    // 如果新大小大于原大小，重新分配内存
+    newptr = malloc(size);
 
-    /* Free the old block. */
-    free(oldptr);
+    // realloc() 失败，原块保持不变
+    if (!newptr) {
+        return NULL;
+    }
+
+    // 拷贝原有数据，但是可能会产生截断
+    oldsize = MIN(oldsize, size);
+    memcpy(newptr, ptr, oldsize);
+
+    // 释放原有块
+    free(ptr);
 
     return newptr;
 }
-
 /*
  * calloc - you may want to look at mm-naive.c
  * This function is not tested by mdriver, but it is
@@ -296,7 +320,7 @@ void mm_checkheap(int lineno) {
             if (GET_PREV_ALLOC(HDRP(bp)) != is_prev_alloc) {
                 size_t alloc = GET_PREV_ALLOC(HDRP(bp));
                 dbg_printf("[%d]Block Header Error: prev alloc bit is incorrect at %p\n", lineno, bp);
-                dbg_printf("    the alloc of header is %ld, but the prev alloc is %ld\n", alloc, is_prev_alloc);
+                dbg_printf("    the prev alloc of header is %ld, but the prev alloc is %ld\n", alloc, is_prev_alloc);
                 exit(1);
             }
         }
@@ -343,7 +367,7 @@ void mm_checkheap(int lineno) {
     // 检查当前指针是否超过堆顶
     if (bp > hi) {
         dbg_printf("[%d]Heap Error: heap extends beyond heap top at %p\n", lineno, bp);
-        dbg_printf("    heap top at %p\n", lineno, hi);
+        dbg_printf("    heap top at %p\n", hi);
         exit(1);
     }
     // 检查是否对齐堆顶
@@ -374,7 +398,7 @@ void mm_checkfreelist(int lineno) {
                 if (NEXT_NODE(PREV_NODE(bp)) != bp) {
                     char *bp2 = NEXT_NODE(PREV_NODE(bp));
                     dbg_printf("[%d]Free List Error: prev and next pointer not match at %p\n", lineno, bp);
-                    dbg_printf("    the next node of prev node at %p is %p\n", lineno, bp, bp2);
+                    dbg_printf("    the next node of prev node at %p is %p\n", bp, bp2);
                     exit(1);
                 }
             }

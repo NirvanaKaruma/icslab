@@ -151,7 +151,7 @@ void *malloc (size_t size) {
         return NULL;
     asize = resize_alloc_size(size);
     /* Search the free list for a fit */
-    if((bp = find_fit(asize, 1)) != NULL){
+    if((bp = find_fit(asize, 2)) != NULL){
         place(bp, asize);
         return bp;
     }
@@ -188,7 +188,6 @@ void free (void *ptr) {
 
 /*
  * realloc - you may want to look at mm-naive.c
- * If new alloc size < old size, just get it from old one.
  */
 void* realloc(void* ptr, size_t size) {
     size_t oldsize;
@@ -529,11 +528,12 @@ static inline void *coalesce(void *bp, size_t size){
 static inline void *find_fit(size_t asize, int k){
     char *best_block = NULL;
     size_t best_size = 0;
+    char *lo = mem_heap_lo();
     int count = 0;            // 记录找到的适合块的数量
 
     for(int num = size2index(asize); num < FREE_LIST_NUM; num++){
         char *bp = free_listp[num];
-        while(bp != mem_heap_lo()){
+        while(bp != lo){
             size_t block_size = GET_SIZE(HDRP(bp));
             if(block_size >= asize){
                 // 如果当前块适合，且是第一个适合的块，或者比当前最合适的块更小
@@ -591,7 +591,7 @@ static void insert_node(void *bp, size_t size) {
     char *end = mem_heap_lo();      // 链表尾部
     int count = 0;
     
-    const int k = 3;
+    const int k = 0;
 
     // 链表无元素, 直接插入
     if (top == end) {
@@ -600,7 +600,7 @@ static void insert_node(void *bp, size_t size) {
         SET_NEXT_NODE(bp, NULL);
         return;
     } 
-    // 否则, 对链表前k个元素(含要插入的)进行插入排序
+    // 否则, 对链表前k个元素(含要插入的)进行插入排序, k=0意味着不排序直接插入头部
     else {        
         char *index = top;
         while (NEXT_NODE(index) != end && count < k) {
@@ -674,13 +674,13 @@ static inline size_t size2index(size_t size) {
                 else return 7;
             }
         } else {
-            if (size <= 16384) {
+            if (size <= 15360) {
                 if (size <= 4096) return 8;
                 else if (size <= 8192) return 9;
                 else return 10;
             } else {
-                if (size <= 32768) return 11;
-                else if (size <= 65536) return 12;
+                if (size <= 30720) return 11;
+                else if (size <= 61440) return 12;
                 else return 13;
             }
         }
@@ -735,18 +735,18 @@ static inline void index2size(size_t index) {
         break;
     case 10:
         low_range = 8192;
-        high_range = 16384;
+        high_range = 15360;
         break;
     case 11:
-        low_range = 16384;
-        high_range = 32768;
+        low_range = 15360;
+        high_range = 30720;
         break;
     case 12:
-        low_range = 32768;
-        high_range = 65536;
+        low_range = 30720;
+        high_range = 61440;
         break;
     case 13:
-        low_range = 65536;
+        low_range = 61440;
         high_range = 0x7fffffff;
         break;
     }

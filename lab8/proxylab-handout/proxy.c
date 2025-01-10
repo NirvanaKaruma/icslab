@@ -2,17 +2,20 @@
  * name: 栾佑宇
  * student-id: <2300013113>
  */
-#include "csapp.h"
 #include "cache.h"
+#include "csapp.h"
 
 /* Recommended max cache and object sizes */
 #define MAX_CACHE_SIZE 1049000
 #define MAX_OBJECT_SIZE 102400
 
 /* You won't lose style points for including this long line in your code */
-static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 Firefox/10.0.3\r\n";
+static const char *user_agent_hdr =
+    "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 "
+    "Firefox/10.0.3\r\n";
 
 // http字符串, 用于验证URL合法性
+static const char *http_preffix = "http://";
 
 // URL结构
 typedef struct {
@@ -22,11 +25,11 @@ typedef struct {
 } url_t;
 
 // 自定义函数
-void *thread(void *vargp);                                  // 线程函数
-void echo(int connfd);                                      // 响应处理函数
-int URL_parser(char *s, url_t *url);                        // URL解析函数
-void header_parser(rio_t *rio, char *header, url_t *url);   // 头解析函数
-void doit(rio_t *client_rio, char *url);                           // GET处理函数
+void *thread(void *vargp);                                // 线程函数
+void echo(int connfd);                                    // 响应处理函数
+int URL_parser(char *s, url_t *url);                      // URL解析函数
+void header_parser(rio_t *rio, char *header, url_t *url); // 头解析函数
+void doit(rio_t *client_rio, char *url);                  // GET处理函数
 
 int main(int argc, char **argv) {
     Signal(SIGPIPE, SIG_IGN);
@@ -35,7 +38,7 @@ int main(int argc, char **argv) {
     socklen_t clientlen;
     struct sockaddr_storage clientaddr;
     pthread_t tid;
-    
+
     // 检查参数数目是否合法
     if (argc != 2) {
         fprintf(stderr, "usage :%s <port> \n", argv[0]);
@@ -46,11 +49,11 @@ int main(int argc, char **argv) {
 
     init_cache();
 
-    while(1){
+    while (1) {
         clientlen = sizeof(clientaddr);
         // 重新开辟空间, 保存传递给线程的connfdp, 防止竞争
         connfdp = Malloc(sizeof(int));
-        *connfdp = Accept(listenfd, (SA *) &clientaddr, &clientlen);
+        *connfdp = Accept(listenfd, (SA *)&clientaddr, &clientlen);
         Pthread_create(&tid, NULL, thread, connfdp);
     }
 
@@ -58,7 +61,7 @@ int main(int argc, char **argv) {
 }
 
 // 线程函数
-void *thread(void *vargp){
+void *thread(void *vargp) {
     // 分离自身线程
     Pthread_detach(pthread_self());
     int connfd = *((int *)vargp);
@@ -69,55 +72,53 @@ void *thread(void *vargp){
 }
 
 // echo函数, 响应请求
-void echo(int connfd){
+void echo(int connfd) {
     char buf[MAXLINE];
     rio_t rio;
 
     rio_readinitb(&rio, connfd);
 
     // 按行读取请求
-    if(Rio_readlineb(&rio, buf, MAXLINE) <= 0){
+    if (Rio_readlineb(&rio, buf, MAXLINE) <= 0) {
         fprintf(stderr, "Readline error: %s\n", strerror(errno));
-        Close(connfd);
         return;
     }
 
     // 解析请求行
     char method[MAXLINE], url[MAXLINE], version[MAXLINE];
-    if(sscanf(buf, "%s %s %s", method, url, version) != 3){
+    if (sscanf(buf, "%s %s %s", method, url, version) != 3) {
         fprintf(stderr, "Parse request error: %s\n", strerror(errno));
-        Close(connfd);
         return;
     }
 
     // 只响应GET方法
-    if(strcasecmp(method, "GET") == 0){
+    if (strcasecmp(method, "GET") == 0) {
         doit(&rio, url);
     }
     return;
 }
 
 // URL解析, 成功返回0, 不成功返回-1, 结果保存在url中
-int URL_parser(char *s, url_t *url){
-    int http_pre_len = strlen("http://");
+int URL_parser(char *s, url_t *url) {
+    int http_pre_len = strlen(http_preffix);
     // 检查是否为HTTP协议
-    if(strncasecmp(s, "http://" ,http_pre_len)){
+    if (strncasecmp(s, http_preffix, http_pre_len)) {
         fprintf(stderr, "URL not http protocol: %s\n", s);
         return -1;
     }
 
     // 查找host, port, path的位置
     char *host_s = s + http_pre_len;
-    char* port_s = strchr(host_s, ':');
-    char* path_s = strchr(host_s, '/');
+    char *port_s = strchr(host_s, ':');
+    char *path_s = strchr(host_s, '/');
 
     // 无path
-    if(path_s == NULL){
+    if (path_s == NULL) {
         return -1;
     }
 
     // 有端口号
-    if(port_s != NULL){
+    if (port_s != NULL) {
         *port_s = '\0';
         strcpy(url->host, host_s);
         *port_s = ':';
@@ -128,7 +129,7 @@ int URL_parser(char *s, url_t *url){
     }
 
     // 无端口号
-    else{
+    else {
         *path_s = '\0';
         strcpy(url->host, host_s);
         strcpy(url->port, "80");
@@ -140,28 +141,29 @@ int URL_parser(char *s, url_t *url){
 }
 
 // 头解析函数
-void header_parser(rio_t *rio, char *header, url_t *url){
+void header_parser(rio_t *rio, char *header, url_t *url) {
     char buf[MAXLINE];
     int isHost = 0;
 
-    while(1){
+    while (1) {
         Rio_readlineb(rio, buf, MAXLINE);
         // 结束行
-        if(!strcmp(buf, "\r\n")){
+        if (!strcmp(buf, "\r\n")) {
             break;
         }
         // 遇到已有host头
-        if(!strncasecmp(buf, "Host:", strlen("Host:"))){
+        if (!strncasecmp(buf, "Host:", strlen("Host:"))) {
             isHost = 1;
         }
         // 忽略Connection头、Proxy-Connection头、User-Agent头
-        if(!strncasecmp(buf, "Connection:", strlen("Connection:"))) {
+        if (!strncasecmp(buf, "Connection:", strlen("Connection:"))) {
             continue;
         }
-        if(!strncasecmp(buf, "Proxy-Connection:", strlen("Proxy-Connection:"))) {
+        if (!strncasecmp(buf,
+                         "Proxy-Connection:", strlen("Proxy-Connection:"))) {
             continue;
         }
-        if(!strncasecmp(buf, "User-Agent:", strlen("User-Agent:"))) {
+        if (!strncasecmp(buf, "User-Agent:", strlen("User-Agent:"))) {
             continue;
         }
         // 其他头和Host头直接添加
@@ -169,7 +171,7 @@ void header_parser(rio_t *rio, char *header, url_t *url){
     }
 
     // 没有Host头, 手动添加
-    if(!isHost){
+    if (!isHost) {
         sprintf(buf, "Host: %s\r\n", url->host);
         strcat(header, buf);
     }
@@ -182,13 +184,14 @@ void header_parser(rio_t *rio, char *header, url_t *url){
     strcat(header, "\r\n");
 }
 
-void doit(rio_t *client_rio, char *url){
+void doit(rio_t *client_rio, char *url) {
     // 缓存命中, 直接返回
-    if(query_cache(client_rio, url) > 0) return;
+    if (query_cache(client_rio, url) > 0)
+        return;
 
     // 开辟新空间解析url
     url_t *url_data = (url_t *)malloc(sizeof(url_t));
-    if(URL_parser(url, url_data) < 0){
+    if (URL_parser(url, url_data) < 0) {
         fprintf(stderr, "URL parse error\n");
         return;
     }
@@ -199,8 +202,9 @@ void doit(rio_t *client_rio, char *url){
 
     // 启动链接
     int server_fd = Open_clientfd(url_data->host, url_data->port);
-    if(server_fd < 0) {
-        fprintf(stderr, "Connect error to %s:%s\n", url_data->host, url_data->port);
+    if (server_fd < 0) {
+        fprintf(stderr, "Connect error to %s:%s\n", url_data->host,
+                url_data->port);
         return;
     }
 
@@ -218,23 +222,27 @@ void doit(rio_t *client_rio, char *url){
     size_t cache_size_tmp = 0;
     int client_fd = client_rio->rio_fd;
 
-    while((cache_size_tmp = Rio_readlineb(&server_rio, buf, MAXLINE))){
-        if(cache_size_tmp < 0){
+    while ((cache_size_tmp = Rio_readnb(&server_rio, buf, MAXLINE))) {
+        if (cache_size_tmp < 0) {
             fprintf(stderr, "Read from server error\n");
             Close(server_fd);
             return;
         }
         // 如果小于最大限制, 存入缓存中, 以备加入缓存
-        if(cache_size + cache_size_tmp < MAX_OBJECT_SIZE){
+        if (cache_size + cache_size_tmp < MAX_OBJECT_SIZE) {
             memcpy(cache_object + cache_size, buf, cache_size_tmp);
         }
         cache_size += cache_size_tmp;
         // 发送给客户端
-        Rio_writen(client_fd, buf, cache_size_tmp);
+        if (rio_writen(client_fd, buf, cache_size_tmp) != cache_size_tmp) {
+            fprintf(stderr, "Send to client error\n");
+            Close(server_fd);
+            return;
+        }
     }
 
     // 本次总缓存小于最大限制, 更新至缓存池中
-    if(cache_size < MAX_OBJECT_SIZE){
+    if (cache_size < MAX_OBJECT_SIZE) {
         update_cache(cache_object, url, cache_size);
     }
 

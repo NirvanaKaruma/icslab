@@ -2,10 +2,17 @@
  * mm.c
  *
  * author: 栾佑宇 2300013113
- * 使用分离空闲链表+首k次适应作为实现思路
+ * 
+ * 
+ * 使用分离空闲链表+首k次适应作为实现思路, 这里最终采用的k为2
  * 按课本, 改进块的结构为: 对于空闲块, 同时存储header和footer; 对于分配块, 只存储header, 
  * 同时使得前一个块的footer/尾部和后一个块的header对齐, 使得结尾块不必新开一个双字单独储存
- * 链表结构采用双向链表, 同时插入链表时对链表前若干个元素进行插入排序, 使得链表元素部分有序
+ * 链表结构采用双向链表, 同时插入链表时对链表前若干个元素进行插入排序, 使得链表元素部分有序(最终并没有排序)
+ * 分组查询用了搜索树优化
+ * 
+ * 后记: 在写proxylab的时候才想到一个非常简单暴力的优化Kops的方法: 将堆底设为全局指针, 这样可以减少调用函数的次数
+ * 不过直接交上去也满分了, 无所谓
+ * 这里的版本是重新优化过的
  * 
  */
 #include <assert.h>
@@ -87,6 +94,7 @@
 /* Global variables */
 static char *heap_listp = 0;  /* Pointer to first block */
 static char **free_listp;     /* Pointers to the first of free blocks */
+static char *lo = 0;          /* Pointers to the heap bottom */
 
 /* For list checking, recording the range of the corresponding list*/
 static size_t low_range;
@@ -109,7 +117,7 @@ static void mm_checkfreelist(int lineno);
  */
 int mm_init(void) {
     // 初始化所有空闲链表指针数组, 将所有空闲链表头指针初始化为堆底
-    char *lo = mem_heap_lo();
+    lo = mem_heap_lo();
     free_listp = mem_heap_lo();
     // 分配存储指针数组的空间不足, 返回失败
     if((heap_listp = mem_sbrk(DSIZE * FREE_LIST_NUM)) == (void *)-1) 
@@ -279,6 +287,7 @@ static int aligned(const void *p) {
 
 /*
  * mm_checkheap
+ * 不保证实现的准确性
  */
 void mm_checkheap(int lineno) {
     // 偏移掉分配在堆底的空闲链表
@@ -385,7 +394,7 @@ void mm_checkheap(int lineno) {
 void mm_checkfreelist(int lineno) {
     size_t free_block_numbers_by_list = 0;
     size_t free_block_numbers_by_heap = 0;
-    char *lo = mem_heap_lo();
+    lo = mem_heap_lo();
     char *hi = mem_heap_hi();
     // 检查链表链接的正确性
     for (int i = 0; i < FREE_LIST_NUM; i++) {
@@ -528,7 +537,6 @@ static inline void *coalesce(void *bp, size_t size){
 static inline void *find_fit(size_t asize, int k){
     char *best_block = NULL;
     size_t best_size = 0;
-    char *lo = mem_heap_lo();
     int count = 0;            // 记录找到的适合块的数量
 
     for(int num = size2index(asize); num < FREE_LIST_NUM; num++){
@@ -635,7 +643,6 @@ static inline void delete_node(void *bp){
     size_t index = size2index(size);
     char *prev = PREV_NODE(bp);
     char *next = NEXT_NODE(bp);
-    char *lo = mem_heap_lo();
     // 如果是头结点
     if(prev == lo){
         free_listp[index] = next;

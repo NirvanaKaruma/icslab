@@ -1,6 +1,6 @@
 //! This architecture is used cooperatively with the `ncopy.ys` to grade the 
 //! ncopy task.
-//! 栾佑宇 2300013113
+//! Karuma
 //! 使用了pipe_std并加入了iopq指令支持
 //! pipe_std中reg_cc和cond串联运行，cond的cc来源于reg_cc, 从而增长了ac
 //! 然而在给定的Y86-64指令集中, 不存在同时setCC和使用CC的指令, 所有使用的CC都来自于之前产生的CC

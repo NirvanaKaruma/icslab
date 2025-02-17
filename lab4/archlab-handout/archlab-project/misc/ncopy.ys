@@ -3,7 +3,7 @@
 # Return the number of positive words (>0) contained in src.
 #
 # Include your name and ID here.
-# 栾佑宇 2300013113
+# Karuma
 # Describe how and why you modified the baseline code.
 # 使用iopq代替irmmovq和opq的组合, 减少一个周期
 # 注释掉了xorq %rax,%rax(%rax初始即为0)

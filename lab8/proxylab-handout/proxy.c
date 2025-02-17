@@ -1,6 +1,5 @@
 /*
- * name: 栾佑宇
- * student-id: <2300013113>
+ * Karuma
  */
 #include "cache.h"
 #include "csapp.h"

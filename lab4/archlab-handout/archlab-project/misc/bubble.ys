@@ -1,5 +1,4 @@
-# 姓名: 栾佑宇
-# 学号: 2300013113
+# Karuma
 	.pos 0
 	irmovq	stack,%rsp
 	call main

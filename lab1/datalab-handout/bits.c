@@ -2,7 +2,7 @@
  * CS:APP Data Lab 
  * 
  * <Please put your name and userid here>
- * name: 栾佑宇
+ * 
  * userid: Karuma
  * 
  * bits.c - Source file with your solutions to the Lab.

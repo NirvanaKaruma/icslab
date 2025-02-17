@@ -2,7 +2,7 @@
  * tsh - A tiny shell program with job control
  * 
  * <Put your name and login ID here>
- * 栾佑宇 2300013113
+ * Karuma
  */
 #include <assert.h>
 #include <stdio.h>

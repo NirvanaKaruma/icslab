@@ -1,7 +1,6 @@
 # As you've got familiar with Y86 after writting your first y86 code
 # (bubble.ys), this code is left blank for you :)
-# 姓名: 栾佑宇
-# 学号: 2300013113
+# Karuma
 
 # 地址从0开始向上增长, 建栈调用main函数
 	.pos 0

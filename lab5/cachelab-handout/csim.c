@@ -1,4 +1,4 @@
-// 栾佑宇 2300013113
+// Karuma
 #include "cachelab.h"
 #include <stdlib.h>
 #include <stdio.h>
